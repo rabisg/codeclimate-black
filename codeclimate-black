@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+
+import json
+import os.path
+import black
+import sys
+from identify import identify
+
+root_path = "/code/"
+
+
+class CodeClimateReport:
+    """Print results of the checks in Code Climate format."""
+
+    def error(line_number, offset, filename):
+        """Print an error in Code Climate format."""
+
+        issue = {
+            "type": "issue",
+            "check_name": "Python/Black",
+            "categories": ["Style"],
+            "description": "File not formatted according to black style guide",
+            "remediation_points": 50000,
+            "location": {
+                "path": os.path.normpath(filename),
+                "positions": {
+                    "begin": {"line": line_number, "column": offset + 1},
+                    "end": {"line": line_number, "column": offset + 1},
+                },
+            },
+        }
+        print(json.dumps(issue) + "\0")
+
+
+def _included(fp, include_paths):
+    for path in include_paths:
+        if fp.startswith(path):
+            return True
+    return False
+
+
+def _is_python_file(filename):
+    return "python" in identify.tags_from_path(filename)
+
+
+def run(paths):
+    """Parse options and run checks on Python source."""
+    import signal
+    import os
+
+    # Handle "Broken pipe" gracefully
+    try:
+        signal.signal(signal.SIGPIPE, lambda signum, frame: sys.exit(1))
+    except AttributeError:
+        pass  # not supported on Windows
+
+    for dirpath, dnames, fnames in os.walk(root_path):
+        for f in fnames:
+            filepath = os.path.join(dirpath, f)
+            if _is_python_file(filepath) and _included(filepath, paths):
+                with open(filepath, "r") as fp:
+                    inp_buf = fp.read()
+                    out = black.format_str(inp_buf, mode=black.Mode())
+                    diff = black.diff(inp_buf, out, filepath, filepath)
+                    if diff:
+                        CodeClimateReport.error(0, 0, filepath[len(root_path) :])
+
+
+include_paths = [root_path]
+
+if os.path.exists("/config.json"):
+    contents = open("/config.json").read()
+    config = json.loads(contents)
+
+    i_paths = config.get("include_paths")
+    if type(i_paths) == list:
+        python_paths = []
+        for i in i_paths:
+            ext = os.path.splitext(i)[1]
+            if os.path.isdir(i) or _is_python_file(i):
+                python_paths.append(os.path.normpath(os.path.join(root_path, i)))
+        include_paths = python_paths
+
+run(include_paths)

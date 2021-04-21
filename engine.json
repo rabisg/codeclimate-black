@@ -1,0 +1,8 @@
+{
+  "name": "black",
+  "description": "Format your python code with black",
+  "maintainer": {
+    "name": "Rabi",
+    "email": "guha.rabishankar@gmail.com"
+  },
+}
