@@ -1,6 +1,6 @@
 .PHONY: image
 
-IMAGE_NAME ?= codeclimate/codeclimate-pep8
+IMAGE_NAME ?= codeclimate/codeclimate-black
 
 image:
 	docker build --rm -t $(IMAGE_NAME) .
